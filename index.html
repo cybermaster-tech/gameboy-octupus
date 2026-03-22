@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Octopus Handheld Clone</title>
+  <style>
+    :root {
+      --bg: #d7d2b6;
+      --panel: #c8c09f;
+      --ink: #1f2a1f;
+      --shadow: #95a07f;
+      --highlight: #eef0dc;
+      --danger: #8a2f2f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #b7c3a0 0%, #9faa8b 100%);
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      padding: 20px;
+    }
+
+    .shell {
+      width: min(92vw, 920px);
+      background: #d9d5bd;
+      border: 6px solid #7f896b;
+      border-radius: 28px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+      padding: 22px;
+    }
+
+    .titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      font-size: clamp(20px, 3vw, 34px);
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .machine {
+      display: grid;
+      grid-template-columns: 1.5fr 0.8fr;
+      gap: 18px;
+    }
+
+    .screen-wrap {
+      background: #a5ad88;
+      border: 5px solid #727b5f;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: inset 0 0 0 4px #c3c8ac;
+    }
+
+    canvas {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      display: block;
+      background: var(--bg);
+      border: 4px solid #616a4f;
+      border-radius: 12px;
+      image-rendering: pixelated;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 4px solid #7a8365;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: inset 0 0 0 3px #dde1c6;
+    }
+
+    .stats {
+      display: grid;
+      gap: 10px;
+      font-size: 15px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px dashed rgba(31,42,31,0.3);
+      padding-bottom: 6px;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: #6d7659;
+      color: #f5f6ec;
+      font-weight: 700;
+      padding: 12px 14px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #4f5640;
+      transition: transform 0.05s ease, box-shadow 0.05s ease;
+    }
+
+    button:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #4f5640;
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .hint {
+      font-size: 13px;
+      line-height: 1.45;
+      opacity: 0.9;
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(31,42,31,0.25);
+      background: rgba(255,255,255,0.2);
+    }
+
+    .footer {
+      margin-top: 16px;
+      font-size: 12px;
+      opacity: 0.8;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 820px) {
+      .machine {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="titlebar">
+      <div>
+        <div class="title">OCTOPUS</div>
+        <div class="subtitle">Browser remake inspired by classic handheld gameplay</div>
+      </div>
+      <div class="legend">
+        <span class="chip">Move: ← → or A D</span>
+        <span class="chip">Start: Space</span>
+        <span class="chip">Mute: M</span>
+      </div>
+    </div>
+
+    <div class="machine">
+      <div class="screen-wrap panel">
+        <canvas id="game" width="800" height="600" aria-label="Octopus game screen"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="panel stats">
+          <div class="stat-row"><span>Score</span><strong id="score">0</strong></div>
+          <div class="stat-row"><span>Lives</span><strong id="lives">3</strong></div>
+          <div class="stat-row"><span>Treasure</span><strong id="treasure">0</strong></div>
+          <div class="stat-row"><span>Best</span><strong id="best">0</strong></div>
+          <div class="stat-row"><span>Status</span><strong id="status">Ready</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="btn-grid">
+            <button id="startBtn" class="wide">Start Game</button>
+            <button id="leftBtn">Left</button>
+            <button id="rightBtn">Right</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="soundBtn">Sound: On</button>
+          </div>
+        </div>
+
+        <div class="panel hint">
+          Grab treasure from the ship and return safely to the boat. The longer you carry treasure, the more points you earn. Avoid the octopus tentacles. Three hits and the game ends.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Upload this single HTML file to a GitHub repository and enable GitHub Pages to play it online.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const treasureEl = document.getElementById('treasure');
+    const bestEl = document.getElementById('best');
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const soundBtn = document.getElementById('soundBtn');
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const bestKey = 'octopus_clone_best_score_v1';
+
+    const path = [
+      { x: 140, y: 470, side: 'boat' },
+      { x: 205, y: 470 },
+      { x: 275, y: 488 },
+      { x: 350, y: 485 },
+      { x: 430, y: 465 },
+      { x: 485, y: 430 },
+      { x: 525, y: 380 },
+      { x: 560, y: 320 },
+      { x: 610, y: 265 },
+      { x: 665, y: 225, side: 'ship' }
+    ];
+
+    const armAnchors = [
+      { x: 420, y: 180, len: 130, speed: 0.022, phase: 0.0 },
+      { x: 430, y: 220, len: 160, speed: 0.026, phase: 0.9 },
+      { x: 420, y: 265, len: 185, speed: 0.021, phase: 1.7 },
+      { x: 395, y: 315, len: 205, speed: 0.024, phase: 2.5 },
+      { x: 350, y: 355, len: 220, speed: 0.019, phase: 3.3 }
+    ];
+
+    const game = {
+      running: false,
+      paused: false,
+      soundOn: true,
+      score: 0,
+      lives: 3,
+      playerIndex: 0,
+      direction: 0,
+      treasure: 0,
+      invuln: 0,
+      respawnTimer: 0,
+      flash: 0,
+      time: 0,
+      lastTs: 0,
+      moveCooldown: 0,
+      inputLeft: false,
+      inputRight: false
+    };
+
+    const audioCtx = window.AudioContext ? new AudioContext() : null;
+
+    function beep(freq, duration, type = 'square', gainValue = 0.02) {
+      if (!game.soundOn || !audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = gainValue;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function resetGame() {
+      game.running = true;
+      game.paused = false;
+      game.score = 0;
+      game.lives = 3;
+      game.playerIndex = 0;
+      game.direction = 0;
+      game.treasure = 0;
+      game.invuln = 0;
+      game.respawnTimer = 0;
+      game.flash = 0;
+      game.time = 0;
+      game.lastTs = 0;
+      game.moveCooldown = 0;
+      statusEl.textContent = 'Playing';
+      updateUI();
+      beep(420, 0.07);
+      beep(620, 0.08);
+    }
+
+    function updateUI() {
+      scoreEl.textContent = game.score;
+      livesEl.textContent = game.lives;
+      treasureEl.textContent = game.treasure;
+      const best = Number(localStorage.getItem(bestKey) || 0);
+      bestEl.textContent = best;
+    }
+
+    function gameOver() {
+      game.running = false;
+      game.paused = false;
+      statusEl.textContent = 'Game Over';
+      const best = Number(localStorage.getItem(bestKey) || 0);
+      if (game.score > best) {
+        localStorage.setItem(bestKey, String(game.score));
+      }
+      updateUI();
+      beep(220, 0.18, 'sawtooth');
+      setTimeout(() => beep(180, 0.22, 'sawtooth'), 120);
+    }
+
+    function getPlayerPos() {
+      return path[game.playerIndex];
+    }
+
+    function inWater() {
+      return game.playerIndex > 0 && game.playerIndex < path.length - 1;
+    }
+
+    function atShip() {
+      return game.playerIndex === path.length - 1;
+    }
+
+    function atBoat() {
+      return game.playerIndex === 0;
+    }
+
+    function movePlayer(dir) {
+      if (!game.running || game.paused || game.respawnTimer > 0) return;
+      const next = game.playerIndex + dir;
+      if (next < 0 || next >= path.length) return;
+      game.playerIndex = next;
+      game.direction = dir;
+      game.moveCooldown = 0.12;
+      beep(dir > 0 ? 560 : 480, 0.04, 'square', 0.015);
+
+      if (atShip() && game.treasure === 0) {
+        game.treasure = 1;
+        statusEl.textContent = 'Got treasure';
+        beep(760, 0.06, 'triangle', 0.025);
+      }
+
+      if (atBoat() && game.treasure > 0) {
+        const bonus = 10 * game.treasure;
+        game.score += bonus;
+        game.treasure = 0;
+        statusEl.textContent = 'Treasure delivered';
+        beep(880, 0.06, 'triangle', 0.03);
+        setTimeout(() => beep(1040, 0.08, 'triangle', 0.03), 70);
+      }
+
+      updateUI();
+    }
+
+    function loseLife() {
+      if (game.invuln > 0 || game.respawnTimer > 0) return;
+      game.lives -= 1;
+      game.treasure = 0;
+      game.playerIndex = 0;
+      game.invuln = 2.2;
+      game.respawnTimer = 0.9;
+      game.flash = 0.8;
+      statusEl.textContent = game.lives > 0 ? 'Hit!' : 'Game Over';
+      updateUI();
+      beep(180, 0.12, 'sawtooth', 0.03);
+      setTimeout(() => beep(140, 0.16, 'sawtooth', 0.03), 90);
+      if (game.lives <= 0) gameOver();
+    }
+
+    function armTip(i, t) {
+      const a = armAnchors[i];
+      const sway = Math.sin(t * 0.001 * (18 + i * 3) + a.phase) * (0.75 + i * 0.08);
+      const tipX = a.x + Math.cos(sway) * a.len;
+      const tipY = a.y + Math.sin(sway) * (a.len * 0.72);
+      return { x: tipX, y: tipY };
+    }
+
+    function distance(ax, ay, bx, by) {
+      const dx = ax - bx;
+      const dy = ay - by;
+      return Math.hypot(dx, dy);
+    }
+
+    function update(dt, ts) {
+      if (!game.running || game.paused) return;
+      game.time += dt;
+      if (game.moveCooldown > 0) game.moveCooldown -= dt;
+      if (game.invuln > 0) game.invuln -= dt;
+      if (game.respawnTimer > 0) game.respawnTimer -= dt;
+      if (game.flash > 0) game.flash -= dt;
+
+      if (game.treasure > 0 && inWater()) {
+        game.score += dt * 5;
+      }
+
+      const moveInterval = game.treasure > 0 ? 0.16 : 0.13;
+      if (game.moveCooldown <= 0) {
+        if (game.inputLeft) movePlayer(-1);
+        else if (game.inputRight) movePlayer(1);
+        game.moveCooldown = (game.inputLeft || game.inputRight) ? moveInterval : 0;
+      }
+
+      if (inWater() && game.invuln <= 0) {
+        const p = getPlayerPos();
+        for (let i = 0; i < armAnchors.length; i++) {
+          const tip = armTip(i, ts);
+          const radius = 28 + i * 2;
+          if (distance(p.x, p.y, tip.x, tip.y) < radius) {
+            loseLife();
+            break;
+          }
+        }
+      }
+
+      scoreEl.textContent = Math.floor(game.score);
+    }
+
+    function drawRoundedRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawBackground() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#d7d2b6';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = '#bac09e';
+      ctx.fillRect(0, 0, W, 80);
+
+      ctx.fillStyle = '#7e8968';
+      ctx.beginPath();
+      ctx.moveTo(0, 500);
+      ctx.quadraticCurveTo(220, 470, 380, 495);
+      ctx.quadraticCurveTo(540, 520, 800, 480);
+      ctx.lineTo(800, 600);
+      ctx.lineTo(0, 600);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#a1ab86';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.arc(80 + i * 150, 540 + (i % 2) * 8, 50 + i * 5, 0, Math.PI, true);
+        ctx.fill();
+      }
+
+      drawBoat();
+      drawShip();
+      drawOctopusBody();
+      drawBubbles();
+    }
+
+    function drawBoat() {
+      ctx.fillStyle = '#2d382b';
+      ctx.beginPath();
+      ctx.moveTo(70, 485);
+      ctx.lineTo(190, 485);
+      ctx.lineTo(165, 520);
+      ctx.lineTo(90, 520);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillRect(118, 438, 6, 48);
+      ctx.beginPath();
+      ctx.moveTo(124, 438);
+      ctx.lineTo(154, 452);
+      ctx.lineTo(124, 468);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawShip() {
+      ctx.fillStyle = '#2c3429';
+      ctx.beginPath();
+      ctx.moveTo(560, 190);
+      ctx.lineTo(745, 190);
+      ctx.lineTo(710, 235);
+      ctx.lineTo(585, 235);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillRect(642, 118, 8, 72);
+      ctx.beginPath();
+      ctx.moveTo(650, 118);
+      ctx.lineTo(700, 145);
+      ctx.lineTo(650, 172);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#384233';
+      for (let i = 0; i < 4; i++) ctx.fillRect(595 + i * 28, 200, 14, 10);
+
+      if (game.treasure === 0) {
+        ctx.fillStyle = '#404b3a';
+        ctx.fillRect(682, 168, 22, 18);
+        ctx.fillRect(688, 162, 10, 8);
+      }
+    }
+
+    function drawOctopusBody() {
+      ctx.fillStyle = '#3f4a37';
+      ctx.beginPath();
+      ctx.arc(365, 215, 78, Math.PI * 0.8, Math.PI * 0.2, true);
+      ctx.lineTo(440, 245);
+      ctx.quadraticCurveTo(365, 300, 290, 245);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#d7d2b6';
+      ctx.beginPath();
+      ctx.arc(338, 206, 11, 0, Math.PI * 2);
+      ctx.arc(390, 206, 11, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#2b3428';
+      ctx.beginPath();
+      ctx.arc(340, 206, 5, 0, Math.PI * 2);
+      ctx.arc(392, 206, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawTentacles(ts) {
+      ctx.lineCap = 'round';
+      for (let i = 0; i < armAnchors.length; i++) {
+        const a = armAnchors[i];
+        const tip = armTip(i, ts);
+        ctx.strokeStyle = '#2e382c';
+        ctx.lineWidth = 16 - i * 1.3;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        const cx1 = a.x + 70;
+        const cy1 = a.y + 30 + i * 12;
+        const cx2 = tip.x - 45;
+        const cy2 = tip.y - 20;
+        ctx.bezierCurveTo(cx1, cy1, cx2, cy2, tip.x, tip.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#2a3327';
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, 10 + i, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawPath() {
+      ctx.strokeStyle = 'rgba(31,42,31,0.22)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7, 10]);
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawTreasureOnPlayer(x, y) {
+      ctx.fillStyle = '#434d3c';
+      ctx.fillRect(x + 8, y - 28, 18, 16);
+      ctx.fillRect(x + 13, y - 33, 8, 5);
+    }
+
+    function drawPlayer() {
+      if (game.respawnTimer > 0 && Math.floor(game.respawnTimer * 10) % 2 === 0) return;
+      if (game.invuln > 0 && Math.floor(game.invuln * 10) % 2 === 0) return;
+      const p = getPlayerPos();
+      ctx.fillStyle = '#20291f';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 22, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#20291f';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 10);
+      ctx.lineTo(p.x, p.y + 16);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - 16, p.y - 6);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + 16, p.y - 4);
+      ctx.moveTo(p.x, p.y + 16);
+      ctx.lineTo(p.x - 14, p.y + 34);
+      ctx.moveTo(p.x, p.y + 16);
+      ctx.lineTo(p.x + 14, p.y + 34);
+      ctx.stroke();
+
+      if (game.treasure > 0) drawTreasureOnPlayer(p.x, p.y);
+    }
+
+    function drawHUD() {
+      ctx.fillStyle = '#253025';
+      drawRoundedRect(18, 18, 210, 68, 12);
+      ctx.fill();
+      ctx.fillStyle = '#d7d2b6';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText('SCORE ' + String(Math.floor(game.score)).padStart(4, '0'), 34, 48);
+      ctx.font = '18px Arial';
+      ctx.fillText('LIVES ' + game.lives, 34, 72);
+
+      if (!game.running) {
+        ctx.fillStyle = 'rgba(31,42,31,0.85)';
+        drawRoundedRect(200, 230, 400, 130, 20);
+        ctx.fill();
+        ctx.fillStyle = '#eef0dc';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 34px Arial';
+        ctx.fillText(statusEl.textContent === 'Game Over' ? 'GAME OVER' : 'PRESS START', W / 2, 280);
+        ctx.font = '20px Arial';
+        ctx.fillText('Collect treasure and dodge the tentacles', W / 2, 320);
+        ctx.textAlign = 'left';
+      } else if (game.paused) {
+        ctx.fillStyle = 'rgba(31,42,31,0.8)';
+        drawRoundedRect(290, 250, 220, 90, 18);
+        ctx.fill();
+        ctx.fillStyle = '#eef0dc';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 30px Arial';
+        ctx.fillText('PAUSED', W / 2, 306);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    function drawBubbles() {
+      ctx.strokeStyle = 'rgba(31,42,31,0.15)';
+      ctx.lineWidth = 2;
+      const t = performance.now() * 0.001;
+      for (let i = 0; i < 16; i++) {
+        const x = 90 + i * 42;
+        const y = 420 - ((t * 30 + i * 17) % 210);
+        const r = 3 + (i % 4);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function render(ts) {
+      const dt = Math.min(0.033, (ts - (game.lastTs || ts)) / 1000);
+      game.lastTs = ts;
+      update(dt, ts);
+      drawBackground();
+      drawPath();
+      drawTentacles(ts);
+      drawPlayer();
+      drawHUD();
+      requestAnimationFrame(render);
+    }
+
+    function setPaused(next) {
+      if (!game.running) return;
+      game.paused = next;
+      statusEl.textContent = game.paused ? 'Paused' : 'Playing';
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
+        game.inputLeft = true;
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
+        game.inputRight = true;
+        e.preventDefault();
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        if (!game.running) resetGame();
+        else setPaused(!game.paused);
+        e.preventDefault();
+      }
+      if (e.key.toLowerCase() === 'm') {
+        game.soundOn = !game.soundOn;
+        soundBtn.textContent = 'Sound: ' + (game.soundOn ? 'On' : 'Off');
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') game.inputLeft = false;
+      if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') game.inputRight = false;
+    });
+
+    startBtn.addEventListener('click', resetGame);
+    pauseBtn.addEventListener('click', () => setPaused(!game.paused));
+    soundBtn.addEventListener('click', () => {
+      game.soundOn = !game.soundOn;
+      soundBtn.textContent = 'Sound: ' + (game.soundOn ? 'On' : 'Off');
+    });
+
+    function tapMove(dir, isDown) {
+      if (dir < 0) game.inputLeft = isDown;
+      if (dir > 0) game.inputRight = isDown;
+    }
+
+    [['pointerdown', true], ['pointerup', false], ['pointerleave', false], ['pointercancel', false]].forEach(([evt, state]) => {
+      leftBtn.addEventListener(evt, () => tapMove(-1, state));
+      rightBtn.addEventListener(evt, () => tapMove(1, state));
+    });
+
+    bestEl.textContent = Number(localStorage.getItem(bestKey) || 0);
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
