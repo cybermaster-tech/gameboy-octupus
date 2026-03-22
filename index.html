@@ -195,6 +195,7 @@
           <div class="stat-row"><span>Treasure</span><strong id="treasure">0</strong></div>
           <div class="stat-row"><span>Best</span><strong id="best">0</strong></div>
           <div class="stat-row"><span>Status</span><strong id="status">Ready</strong></div>
+          <div class="stat-row"><span>Difficulty</span><strong id="difficulty">1</strong></div>
         </div>
 
         <div class="panel">
@@ -208,7 +209,7 @@
         </div>
 
         <div class="panel hint">
-          Grab treasure from the ship and return safely to the boat. The longer you carry treasure, the more points you earn. Avoid the octopus tentacles. Three hits and the game ends.
+          Grab treasure from the ship and return safely to the boat. The octopus now moves in classic handheld-style animation steps. Difficulty rises as your score increases.
         </div>
       </div>
     </div>
@@ -227,6 +228,7 @@
     const treasureEl = document.getElementById('treasure');
     const bestEl = document.getElementById('best');
     const statusEl = document.getElementById('status');
+    const difficultyEl = document.getElementById('difficulty');
     const startBtn = document.getElementById('startBtn');
     const leftBtn = document.getElementById('leftBtn');
     const rightBtn = document.getElementById('rightBtn');
@@ -275,7 +277,12 @@
       lastTs: 0,
       moveCooldown: 0,
       inputLeft: false,
-      inputRight: false
+      inputRight: false,
+      difficulty: 1,
+      frameTimer: 0,
+      frameStep: 0,
+      frameInterval: 0.22,
+      armPatternLength: 24
     };
 
     const audioCtx = window.AudioContext ? new AudioContext() : null;
@@ -308,6 +315,10 @@
       game.time = 0;
       game.lastTs = 0;
       game.moveCooldown = 0;
+      game.difficulty = 1;
+      game.frameTimer = 0;
+      game.frameStep = 0;
+      game.frameInterval = 0.22;
       statusEl.textContent = 'Playing';
       updateUI();
       beep(420, 0.07);
@@ -318,6 +329,7 @@
       scoreEl.textContent = game.score;
       livesEl.textContent = game.lives;
       treasureEl.textContent = game.treasure;
+      difficultyEl.textContent = game.difficulty;
       const best = Number(localStorage.getItem(bestKey) || 0);
       bestEl.textContent = best;
     }
@@ -393,11 +405,13 @@
       if (game.lives <= 0) gameOver();
     }
 
-    function armTip(i, t) {
+    function armTip(i) {
       const a = armAnchors[i];
-      const sway = Math.sin(t * 0.001 * (18 + i * 3) + a.phase) * (0.75 + i * 0.08);
+      const progress = ((game.frameStep * game.difficulty) + i * 3) % game.armPatternLength;
+      const phase = (progress / game.armPatternLength) * Math.PI * 2 + a.phase;
+      const sway = Math.sin(phase) * (0.42 + i * 0.05);
       const tipX = a.x + Math.cos(sway) * a.len;
-      const tipY = a.y + Math.sin(sway) * (a.len * 0.72);
+      const tipY = a.y + Math.sin(sway) * (a.len * 0.68);
       return { x: tipX, y: tipY };
     }
 
@@ -415,11 +429,21 @@
       if (game.respawnTimer > 0) game.respawnTimer -= dt;
       if (game.flash > 0) game.flash -= dt;
 
+      game.frameTimer += dt;
+      while (game.frameTimer >= game.frameInterval) {
+        game.frameTimer -= game.frameInterval;
+        game.frameStep = (game.frameStep + 1) % game.armPatternLength;
+      }
+
       if (game.treasure > 0 && inWater()) {
         game.score += dt * 5;
       }
 
-      const moveInterval = game.treasure > 0 ? 0.16 : 0.13;
+      game.difficulty = 1;
+      if (game.score >= 80) game.difficulty = 2;
+      if (game.score >= 180) game.difficulty = 3;
+
+      const moveInterval = game.treasure > 0 ? 0.18 : 0.14;
       if (game.moveCooldown <= 0) {
         if (game.inputLeft) movePlayer(-1);
         else if (game.inputRight) movePlayer(1);
@@ -429,7 +453,7 @@
       if (inWater() && game.invuln <= 0) {
         const p = getPlayerPos();
         for (let i = 0; i < armAnchors.length; i++) {
-          const tip = armTip(i, ts);
+          const tip = armTip(i);
           const radius = 28 + i * 2;
           if (distance(p.x, p.y, tip.x, tip.y) < radius) {
             loseLife();
@@ -439,6 +463,8 @@
       }
 
       scoreEl.textContent = Math.floor(game.score);
+      difficultyEl.textContent = game.difficulty;
+      statusEl.textContent = game.paused ? 'Paused' : `Playing D${game.difficulty}`;
     }
 
     function drawRoundedRect(x, y, w, h, r) {
@@ -555,11 +581,11 @@
       ctx.fill();
     }
 
-    function drawTentacles(ts) {
+    function drawTentacles() {
       ctx.lineCap = 'round';
       for (let i = 0; i < armAnchors.length; i++) {
         const a = armAnchors[i];
-        const tip = armTip(i, ts);
+        const tip = armTip(i);
         ctx.strokeStyle = '#2e382c';
         ctx.lineWidth = 16 - i * 1.3;
         ctx.beginPath();
@@ -674,7 +700,7 @@
       update(dt, ts);
       drawBackground();
       drawPath();
-      drawTentacles(ts);
+      drawTentacles();
       drawPlayer();
       drawHUD();
       requestAnimationFrame(render);
